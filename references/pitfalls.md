@@ -112,7 +112,7 @@ for si,s in enumerate(re.split(r'(?=<section)', body)):
 - 做法：`parseVal()` 剥掉 `$ % + − ,` 与 `K/M/万` 后缀换算成数值，`—`/空返回 `-Infinity` 沉底，非数值回落 `localeCompare(...,'zh')`。
 
 **E3 明细表列名/口径**
-- 多标签维度（节日/品种/颜色）份额加总会超 100%，必须在 00 METHODOLOGY 与 src 行都写明"重复累积"口径。
+- 多标签维度（节日/品种/颜色）份额加总会超 100%，必须在文末 APPENDIX · METHODOLOGY 口径说明与 src 行都写明"重复累积"口径。
 - 中文翻译**并入英文名列**（`Wedding(婚礼)`），不单独开中文列。
 
 ## F. 验证方式（用户强约束）
