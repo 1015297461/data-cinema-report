@@ -1,0 +1,5 @@
+# WorkBuddy 本地安装元数据（由宿主自动生成，无需入库）
+_user_meta.json
+
+# macOS
+.DS_Store
