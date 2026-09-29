@@ -205,8 +205,15 @@ function mk(id, opt){
   return c;  // 返回实例，便于绑定 click 下钻等事件
 }
 /* 常用格式化器 */
-const fmtM = v => (v/1e6).toFixed(1)+'M';
-const fmtK = v => v>=1e4 ? (v/1e3).toFixed(0)+'K' : v>=1e3 ? (v/1e3).toFixed(1)+'K' : v;
+const fmtCN = v => {
+  if (v === null || v === undefined || isNaN(v)) return '—';
+  const a = Math.abs(v);
+  if (a >= 1e8) { const x = v/1e8; return (Math.abs(x) >= 100 ? x.toFixed(0) : x.toFixed(2).replace(/\.?0+$/,'')) + '亿'; }
+  if (a >= 1e4) { const x = v/1e4; return (Math.abs(x) >= 1000 ? x.toFixed(0) : x.toFixed(1).replace(/\.0$/,'')) + '万'; }
+  return typeof v === 'number' ? v.toLocaleString('en-US') : v;
+};
+const fmtM = fmtCN;   // 兼容旧调用名（现已输出「万/亿」）
+const fmtK = fmtCN;   // 兼容旧调用名（现已输出「万/亿」）
 const pc = v => v===null||v===undefined ? '—' : (v>0?'+':'')+v.toFixed(1)+'%';
 const fnum = v => v===null||v===undefined?'—':(typeof v==='number'?v.toLocaleString('en-US'):v);
 
@@ -278,11 +285,16 @@ window.addEventListener('scroll',()=>{
   document.getElementById('progress').style.width=(h.scrollTop/(h.scrollHeight-h.clientHeight)*100)+'%';
 });
 (function(){
-  const els=document.querySelectorAll('.reveal');
   const io=new IntersectionObserver(entries=>{
     entries.forEach(en=>{ if(en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target);} });
   },{threshold:.08});
-  els.forEach(el=>io.observe(el));
+  // 暴露为可重入函数：脚本运行时「动态插入」的 .reveal 元素（如结论卡组 #cards、
+  // 下钻面板等）不在初始 querySelectorAll 的结果里，必须重新 observe，
+  // 否则它们会永远停在 opacity:0（见 pitfalls E5）。
+  window.__observeReveal = function(root){
+    (root || document).querySelectorAll('.reveal').forEach(function(el){ io.observe(el); });
+  };
+  window.__observeReveal();
 })();
 window.addEventListener('resize',()=>charts.forEach(c=>c.resize()));
 </script>

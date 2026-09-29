@@ -2,7 +2,7 @@
 name: data-cinema-report
 description: 生成"Data Cinema"风格的浅色沉浸式单文件离线 HTML 数据分析报告（Noto Serif/Noto Sans/JetBrains Mono 字体、雾蓝白纸面主题、IntersectionObserver 滚动入场、内联 ECharts SVG 定制图表、洞察框+数据溯源+公式三件套规范、点击下钻联动）。当用户要求生成 HTML 格式的数据分析报告、研究汇报、市场分析、关键词分析、KPI 总览等"以数据图表为核心呈现"的报告时使用本 skill。不适用于纯文字散文报告、Word/PPT 文档（分别用 docx/pptx skill）。用户说"用之前的报告风格"、"用上次那个样式生成报告"时也触发本 skill。
 install_method: upload
-version: 2.2.0
+version: 2.4.0
 ---
 
 # Data Cinema 数据报告生成器（浅色离线版 v2）
@@ -17,7 +17,9 @@ version: 2.2.0
 4. **读陷阱清单**：读取 `references/pitfalls.md`，这是多轮真实返工沉淀的坑位清单（Excel 列偏移、标签与数据错位、闭合标签丢失、动画位移压叠卡片、areaStyle 劫持悬停、配色数组越界、一个 ReferenceError 杀掉后续全部渲染等），生成时逐条规避。
 5. **计算先行**：先用 Python 对源数据做聚合计算，产出精简 JSON（控制在 50KB 内）再注入 `const D = {{CHART_DATA_JSON}}`。禁止把原始明细行内嵌进 HTML。**insight 中的每个数字必须先 print 出来核对再写文案，不得凭记忆填数**。
 6. **写文件**：单文件输出到 `<工作目录>/output/`。因模板含 1MB 内联库，采用**组装式写入**：正文/脚本写成独立片段文件，用 Python 拼接（head+内联库+CSS+body+script）并注入数据 JSON，避免手写大文件。
-7. **验证（默认静态，不截图）**：把组装+自检写成 `build_report.py` 常驻脚本，每次改完重跑。静态自检必须全过：图表容器 id 与 `mk()` 配置一一对应、`<div>` 开闭数相等、`<script>` 开闭数相等、表格容器与 `fillTable` 调用匹配、脚本引用的 `D.xxx` 键全部存在、`node --check` 语法通过。**截图验证必须先征得用户同意**，仅在静态手段无法定位问题时才申请。
+7. **验证（默认静态，不截图）**：把组装+自检写成 `build_report.py` 常驻脚本，每次改完重跑。静态自检必须全过：图表容器 id 与 `mk()` 配置一一对应、`<div>` 开闭数相等、`<script>` 开闭数相等、表格容器与 `fillTable` 调用匹配、脚本引用的 `D.xxx` 键全部存在、`node --check` 语法通过。**截图验证必须先征得用户同意**，仅在静态手段无法定位问题时才申请。 **静态自检全过后必须再跑运行时检查**：`node assets/runtime_check.js <主脚本.js> <dom.json>`。`node --check` 只验语法，抓不到运行时错误 —— 例如模板脚本里 `const fpc` 的 TDZ 会让整个脚本中断、`.reveal{opacity:0}` 永不解除、**整页白屏**（见 pitfalls E4）；也抓不到容器 id 缺失、series 无数据。dom.json 形如 `{"ids":[...图表容器], "tables":[...], "reveals":N, "allIds":[...HTML 全部 id]}`，`allIds` 必须从 body 抽取，否则会误报「容器不存在」。
+
+8. **交付前内容自审（必做，与渲染检查同等重要）**：数字正确 ≠ 结论站得住。交付前逐条过 `references/pitfalls.md` 的 **G. 交付前内容自审清单** —— 分析框架（对象是否同一可比范畴、是否写明主体/对照盘）、口径（筛选是否剔除了高增长新品、重复计数是否只报了销量漏了条数）、推论（结构差异是否被说成趋势、现象是否被说成机会）、表述（同一数字是否两处含义不同、术语是否精确、有无主观修饰词）。**任一条不合格不得交付。**
 
 ## 硬性规范（必须遵守）
 
@@ -26,6 +28,8 @@ version: 2.2.0
 - **口径与公式一律收口文末**：**不再设开篇的「00 · METHODOLOGY」独立章节**，开篇只保留 HERO 的数据来源 chip 与摘要。数据口径（时间范围、分组定义、「重复累积」等多标签口径）与**全部指标公式的完整清单**统一放在文末附录；图表卡的 `.src` 行只写「该图用到的那一条公式」，不做全量罗列。
 - 章节用 `sec-tag` mono 编号标签；**图表卡标题按「章.序」编号**（如 2.1、4.3）。
 - **配色语义**：涨/正向 lime|cyan，跌/负向 rose，基准线 gold 虚线，上期对比系列用半透明灰 `rgba(154,167,196,.5)`；浅色底网格线统一 `rgba(24,42,63,.08)`，图表文字 #5c7a94。
+- **数字单位一律中文**：数量级只用「万 / 亿」，**严禁** `12.25M`、`20k`、`$9.02M` 等英文缩写；统一调用模板内置的 `fmtCN(v)`（`fmtM`/`fmtK` 为兼容别名，输出同为中文）。金额保留 `$`：`$902 万`、`$2.75 亿`。构建期有硬断言拦截。
+- **动态插入的 `.reveal` 必须重新注册入场**：结论卡组 `#cards`、下钻面板等运行时注入的内容，末尾必须调用 `window.__observeReveal()`（模板已暴露），否则永远 `opacity:0`、该节看起来「数据缺失」（见 pitfalls E5）。
 - **禁止**：ECharts 默认样式、默认 tooltip、纯黑纯白背景、Arial/Times 字体、轮播/模态框等重交互、任何 JS CDN 引入（ECharts 必须用模板内联版）。
 - **交互**：仅 IntersectionObserver 滚动入场（.reveal + .in 类，零依赖，**只淡入不位移**）、顶部阅读进度条、图表 resize 自适应；可选：图表点击下钻 chip 面板、散点 dataZoom 缩放、**明细表表头点击排序**（默认能力，标题加"(点击任意表头排序)"提示）。
 - **季节性图**：一律自然月 1~12 排列 + 单年度柱状 + 全年月均金色虚线，峰/谷月用颜色区分；**禁止**用财年（8月~次年7月）双年对比（用户已否定为不直观）。
@@ -45,4 +49,5 @@ version: 2.2.0
 - `assets/echarts.inline.js` — 内联 ECharts 5.5.0 库的独立副本（约 1MB，模板已含，组装式写入时可直接引用）
 - `references/design-system.md` — 主题、字体、组件、图表、交互、内容规范（浅色版 v2）
 - `references/chart-recipes.md` — 16 类 ECharts 图表配方代码（浅色配色 + 折线交互基线 + 可排序表 + 两级 Treemap + 下钻面板 + dataZoom）
+- `assets/runtime_check.js` — Node 运行时检查器（严格模式 DOM 桩 + echarts.init 打桩），验证「每个 mk() 真的 setOption / 表格真的填充 / IntersectionObserver 真的注册」，专治 `node --check` 与正则自检都查不出的白屏级问题。用法见 pitfalls F2。
 - `references/pitfalls.md` — 实战踩坑清单与构建期静态自检断言（生成后逐条对照）

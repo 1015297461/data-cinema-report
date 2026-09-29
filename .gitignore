@@ -3,3 +3,7 @@ _user_meta.json
 
 # macOS
 .DS_Store
+
+# 本地编辑备份（不入库）
+*.bak
+*.bak[0-9]
