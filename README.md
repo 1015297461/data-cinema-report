@@ -31,7 +31,7 @@ data-cinema-report/
 │   ├── template.html           # 完整报告骨架（内联 ECharts+ZRender / 浅色 CSS / 本地化 Tailwind / mk() 封装 / 交互脚本）
 │   └── echarts.inline.js       # 内联 ECharts 5.5.0 独立副本（约 1MB，供组装式写入引用）
 └── references/
-    ├── design-system.md        # 主题、字体、组件、图表、交互、内容规范（浅色版 v2）
+    ├── design-system.md        # 主题、字体、组件、图表、交互、内容规范（浅色版 v2.5）
     ├── chart-recipes.md        # 16 类 ECharts 图表配方代码
     └── pitfalls.md             # 实战踩坑清单与构建期静态自检断言
 ```

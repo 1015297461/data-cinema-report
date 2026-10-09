@@ -2,10 +2,10 @@
 name: data-cinema-report
 description: 生成"Data Cinema"风格的浅色沉浸式单文件离线 HTML 数据分析报告（Noto Serif/Noto Sans/JetBrains Mono 字体、雾蓝白纸面主题、IntersectionObserver 滚动入场、内联 ECharts SVG 定制图表、洞察框+数据溯源+公式三件套规范、点击下钻联动）。当用户要求生成 HTML 格式的数据分析报告、研究汇报、市场分析、关键词分析、KPI 总览等"以数据图表为核心呈现"的报告时使用本 skill。不适用于纯文字散文报告、Word/PPT 文档（分别用 docx/pptx skill）。用户说"用之前的报告风格"、"用上次那个样式生成报告"时也触发本 skill。
 install_method: upload
-version: 2.4.0
+version: 2.5.0
 ---
 
-# Data Cinema 数据报告生成器（浅色离线版 v2）
+# Data Cinema 数据报告生成器（浅色离线版 v2.5）
 
 生成与《2026夏季关键词分析报告01.html》完全一致风格的浅色单文件 HTML 数据报告。核心特征：雾蓝白纸面主题、滚动叙事、ECharts SVG 定制图表（**库已内联，完全离线**）、图表按「章.序」编号、每图必配"一句话总结 + 数据来源 + 计算公式"三件套。
 
@@ -47,7 +47,7 @@ version: 2.4.0
 
 - `assets/template.html` — 完整报告骨架（内联 ECharts+ZRender / 浅色 CSS / 本地化 Tailwind / mk() 封装 / IntersectionObserver 交互），生成起点
 - `assets/echarts.inline.js` — 内联 ECharts 5.5.0 库的独立副本（约 1MB，模板已含，组装式写入时可直接引用）
-- `references/design-system.md` — 主题、字体、组件、图表、交互、内容规范（浅色版 v2）
+- `references/design-system.md` — 主题、字体、组件、图表、交互、内容规范（浅色版 v2.5）
 - `references/chart-recipes.md` — 16 类 ECharts 图表配方代码（浅色配色 + 折线交互基线 + 可排序表 + 两级 Treemap + 下钻面板 + dataZoom）
 - `assets/runtime_check.js` — Node 运行时检查器（严格模式 DOM 桩 + echarts.init 打桩），验证「每个 mk() 真的 setOption / 表格真的填充 / IntersectionObserver 真的注册」，专治 `node --check` 与正则自检都查不出的白屏级问题。用法见 pitfalls F2。
 - `references/pitfalls.md` — 实战踩坑清单与构建期静态自检断言（生成后逐条对照）
