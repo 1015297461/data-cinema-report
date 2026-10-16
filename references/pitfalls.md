@@ -90,6 +90,7 @@ for si,s in enumerate(re.split(r'(?=<section)', body)):
   3. `grid.right` 同步放大（本例 76 → 158），否则右侧轴名被裁掉；
   4. **两条线用不同线型区分**（实线 / 虚线），不只靠颜色；标签位置也错开（一条 `position:'top'`、一条 `'bottom'`），否则 7 个 x 位置上 6 组标签会互相压；
   5. 三轴图**必须配自定义 tooltip**（`trigger:'axis'`，逐项列出三个值）—— 否则读者无法同时读到全部指标，且默认 tooltip 本身违反规范。
+     （此处**不要**改用默认 item 触发：本条与 D1 不冲突 —— D1 只约束「需要单条系列聚焦」的多系列折线图。）
 - **⚠️ 校验断言必须限定在单个 `mk()` 块内**：实测写 `assert src.count("position:'right'")==2` 会**误报失败** —— 全文件还有其他图用同名配置（实际 3 处，本图 2 处）。正确写法先切片：
   ```python
   A = src.index("mk('ch23'"); blk = src[A:src.index('})();', A)]
@@ -266,6 +267,10 @@ window.addEventListener('afterprint',  () => { /* 还原原状态 */ });
 - 症状：配了 `emphasis:{focus:'series'}` 但悬停毫无反应。
 - 原因：axis 触发接管了整个图表区的悬停（弹全系列数据面板），不再触发单条线的 emphasis。
 - 做法：需要「悬停某条线→聚焦该线+只看它的数据」时，用**默认 item 触发**（不要覆盖 tooltip.trigger）。
+- **适用范围（别和别的条目打架）**：本条只约束「需要单条系列聚焦」的图，典型是**多系列折线**；
+  组合图 / 三轴图 / 想一次读全部指标的图，反而**应当显式配 `trigger:'axis'`**（见 C 区三轴图条目第 5 点）——
+  两者不矛盾，取决于你要的是「聚焦一条」还是「同读全部」。
+  **判断方法：这个图配了 `emphasis:{focus:'series'}` 吗？配了就别覆盖 trigger。**
 
 **D2 主线 areaStyle 劫持全图悬停目标（最隐蔽的坑）**
 - 症状：参考报告里效果正常，复制到新报告后"悬停任何位置都只聚焦同一条线"。
@@ -328,19 +333,39 @@ window.addEventListener('afterprint',  () => { /* 还原原状态 */ });
 - 默认只做静态自查；需要截图时必须先征得用户同意，仅在静态手段无法定位问题时才申请。
 
 **F2 静态自查清单（构建脚本内置，任一失败即中止）**
+
+⚠️ 正则一律用**放宽版**（属性顺序会变，写死 `<div id=` 会漏匹配；见 F4），
+`D.` 取键必须加**前置边界**（否则 `BUILD.push` 会被误判成 `D.push`）。
+div/script 配平要**分段核对**（body 与主脚本各自计数），不要对整份成品 HTML 计数——
+内联库字符串里可能含标签字面量。
+
 ```python
-ids  = re.findall(r'<div id="(ch\d+)"', html)
-cfgs = re.findall(r"mk\('(ch\d+)'", html)
+# ── 容器与配置一一对应（容器 id 属性顺序不定，用 [^>]* 放宽）──
+ids  = re.findall(r'<div[^>]*\bid="(ch\d+)"[^>]*>', body)
+cfgs = re.findall(r"mk\('(ch\d+)'", script)
 assert set(ids) == set(cfgs)                      # 图表容器与配置一一对应
-assert len(re.findall(r'<div\b', html)) == html.count('</div>')   # div 开闭配对
-assert html.count('<script') == html.count('</script>')           # script 闭合
-tbls = set(re.findall(r'<table class="dt" id="(tbl\w+)"', html))
-tfil = set(re.findall(r"fillTable\('(tbl\w+)'", html))
-assert tbls == tfil                               # 表格容器与填充调用匹配
-refs = set(re.findall(r'D\.([a-zA-Z_]+)\b', script))
-assert not [r for r in refs if r not in D]        # 数据键全部存在
-# 注意：取 D 键的正则须加前置边界 `(?<![A-Za-z0-9_])D\.`，否则会把 BUILD.push / xxxD.forEach
-# 这类「以 D 结尾的变量.方法」误判成 D.push / D.forEach → 自检假报错。
+assert len(ids) == len(set(ids))                  # 容器 id 不重复
+assert set(re.findall(r"mk\('(ch\d+)'", script)) == set(cfgs)
+
+# ── 标签配平：分段核对，不对整份 HTML 计数 ──
+assert body.count('<div')    == body.count('</div>')      # 正文
+assert script.count('<div')  == script.count('</div>')    # 主脚本
+assert html.count('<script') == html.count('</script>')   # 成品整体
+
+# ── 表格容器与填充调用匹配 ──
+tbls = set(re.findall(r'<table[^>]*\bid="(tbl\w+)"', body))
+tfil = set(re.findall(r"fillTable\('(tbl\w+)'", script))
+assert tbls == tfil
+
+# ── 数据键全部存在（前置边界不可省，见 F4 注释）──
+refs = set(re.findall(r'(?<![A-Za-z0-9_])D\.([a-zA-Z0-9_]+)', script))
+missing = sorted(r for r in refs if r not in D)
+assert not missing, f"data.json 缺少键：{missing}"
+
+# ── 有意不进 JS 的数据键要显式登记，避免「未使用」误报 ──
+INTENTIONAL_STATIC = {"kpi": "HERO 的 KPI 卡与附录口径为静态 HTML"}
+unexpected = sorted(k for k in D if k not in refs and k not in INTENTIONAL_STATIC)
+assert not unexpected, f"未使用且未登记说明的数据键：{unexpected}" 
 # 卡片间距审计（见 C2：追加/重排卡片后末卡身份会变，非末卡必须带 mb-6）
 for si,s in enumerate(re.split(r'(?=<section)', body)):
     if '<section' not in s: continue
@@ -376,7 +401,7 @@ for si,s in enumerate(re.split(r'(?=<section)', body)):
 
 **F6 `SPL` 常量模板里没有定义**
 - 症状：`ReferenceError: SPL is not defined`，一个错误静默杀掉后续全部图表与表格（与 E1 同源）。
-- 原因：chart-recipes.md 的配色常量块写了 `const SPL = 'rgba(24,42,63,.08)'`，但 template.html 的 mk() 区没有它；模板自身用的是内联字面量。
+- 原因：`template.html` 的 mk() 区**只内置了 `C` / `PAL` / `FONT`**，没有 `SPL` 常量；模板自身的分隔线用的是内联字面量。配方里出现的 `const SPL=...` 是**需要你自己声明**的片段，不是模板提供的。
 - 做法：在注入的图表配置块**开头**显式 `const SPL='rgba(24,42,63,.08)';`。
 
 **F7 insight 文案里的派生比例，必须单独算一次**

@@ -1,4 +1,4 @@
-# Data Cinema 报告设计系统规范（浅色版 v2.5）
+# Data Cinema 报告设计系统规范（浅色版 v2.6）
 
 ## 目录
 1. 主题与色彩
@@ -70,8 +70,16 @@ Google Fonts 引入（仅 9 个字重，控制加载体积）：
 ## 4. 组件规范
 
 - **图表卡** `.card p-6 reveal`：`<h3>` 编号小标题（如「2.1 一级大类搜索量同比」）→ `.chart`（高 420px；横向长榜/多类目涨跌榜可 480~560px，双栏并排用 `.chart-sm` 360px）→ `.insight` 一句话总结 → `.src` 数据来源行。一张卡内可放**多条 insight**（主结论 + 补充结论，后者 mt-2）
-- **涨跌配色（按读者语种选择）**：`.pos` = 正向、`.neg` = 负向。模板默认 `.pos{color:var(--lime)}`（绿涨红跌，国际习惯）。**面向中文读者的报告应改为「涨红跌绿」**——在 body 顶部加一段内联 style 覆盖即可，不必改模板（避免影响其他语种报告）：
+- **涨跌配色（按读者语种选择）**：`.pos` = 正向、`.neg` = 负向。模板默认 `.pos{color:var(--lime)}`（绿涨红跌，国际习惯）。**面向中文读者的报告必须改为「涨红跌绿」，且要分两层改 —— 只改一层会得到"文字红涨、图表绿涨"的分裂效果**：
+  **① 文本层**（KPI 卡数字、insight 文字、`fpc()` 生成的 span）：在 body 顶部加内联 style 覆盖即可，不必改模板（避免影响其他语种报告）：
   `<style>.pos{color:var(--rose)}.neg{color:var(--lime)}</style>`
+  **② 图表层**（ECharts 里的涨跌条形/折线）：**颜色是 JS 硬编码的，CSS 覆盖无效**，必须在图表配置里对调正负色：
+  ```js
+  // 绿涨红跌（默认，国际习惯）：  v>=0 ? C.lime : C.rose
+  // 🔴 中文报告应写成「涨红跌绿」：v>=0 ? C.rose : C.lime
+  itemStyle:{color: v>=0 ? C.rose : C.lime, borderRadius:[0,4,4,0]}
+  ```
+  稳妥做法：在图表配置块开头定义 `const UP = C.rose, DOWN = C.lime;`（中文报告）或 `const UP = C.lime, DOWN = C.rose;`（国际读者），全篇图表统一引用 `UP`/`DOWN`，换语种只改这一行。
   注意报告内其他红色系（coral 用作强调/峰值/新品占比）与涨跌色分工不同，改色后仍要保持"红=值得注意"与"红=上涨"不冲突；若冲突，把强调色换成 violet。
 - **KPI 卡**（HERO 内，静态 HTML）：标签（sub 12px）+ `.kpi-num` 3xl~4xl 数字 + 底注（同比用 pos/neg 着色）；数字单位可用 `<span class="text-lg">` 缩小内联
 - **insight 洞察框**：左侧 3px gold 竖线 + 金色 8% 底色（rgba(245,158,11,.08)），文字色 #6b4a12，句式固定为"一句话总结：…"；补充结论不加前缀直接续写。
@@ -86,7 +94,7 @@ Google Fonts 引入（仅 9 个字重，控制加载体积）：
   ```
 - **一个单元格只放一个数**：不要把两个口径的数并置成 `112/117` 这种写法——读者不知道分子分母分别是什么，点击排序时 `parseVal` 也只能解析出一个值。统一只给一个数（与列名口径一致）。
   实测：明细表「在售ASIN」列原写 `325/326`（在售/全部成员），tooltip 写「在售 ASIN 数：325（全部 326）」，全部改为单值后清爽很多；「近 12 月零销量的 ASIN 有 N 个」这类信息改由附录口径说明承担，不挤在表格里。
-- **formula 公式框**（`.formula`，可选用）：mono 12px，cyan 7% 底 + cyan 虚线边框，文字色 #0b5a6b。**自 v2.2 起默认不再使用**——公式统一进文末附录速查表，此样式仅保留给个别需要就地强调公式的场景（如口径说明中的关键口径式）
+- **formula 公式框**（`.formula`，可选用）：mono 12px，cyan 7% 底 + cyan 虚线边框，文字色 #0b5a6b。**默认不使用**——公式统一进文末附录速查表，此样式仅保留给个别需要就地强调公式的场景（如口径说明中的关键口径式）
 - **src 来源行**：mono 11px，格式 `数据来源：{文件} · {字段/筛选条件}｜计算：{公式}`
 - **数据表** `table.dt`：hover 行高亮（cyan 5%）、pos/neg 着色、长关键词截断加 `…`、ASIN/关键词等代码列用 `mono text-xs`
 - **可排序明细表**：所有「核心指标明细」表默认支持点击表头排序（`fillTable(id, cols, rows, true)`），标题追加 `<span class="src">(点击任意表头排序)</span>`；表头右侧 ⇅ 占位、排序后变 ▲/▼ 并高亮 coral。**排序必须做数值解析**（$ % 千分位 K M 万 正负号），空值 `—` 沉底，纯文本走 localeCompare——否则 `$9.80` 会排在 `$19.32` 之后
@@ -103,7 +111,7 @@ Google Fonts 引入（仅 9 个字重，控制加载体积）：
 - `grid:{left:10,right:X,top:Y,bottom:Z,containLabel:true}`；多类目轴 bottom 放宽到 90~110
 - 轴文字颜色 `C.sub`（#5c7a94），轴线 `C.line`，分隔线 `rgba(24,42,63,.08)`
 - 柱状图圆角 3~6px；条形榜条目右侧 mono 标签（10px，#5c7a94）
-- 数值格式化用 fmtM / fmtK / pc / fnum；涨跌数字标签 9~10px mono
+- 数值格式化统一用 **`fmtCN`**（主名，输出「万/亿」）；`fmtM` / `fmtK` 是它的兼容别名（输出同为中文）；另有 `pc`（百分比）/ `fnum`（千分位）；涨跌数字标签 9~10px mono
 - 基准线：`markLine` gold 虚线 + `symbol:'none'`；排名条形可带 cyan 虚线均值线
 - **轴名从简**：`yAxis.name` 只留极简单位（如「月销量(件)」）；「数值越小越好」「对数轴」「含长尾变体」等说明一律写进图表 h3 标题，避免长轴名与顶部刻度/图例重叠
 - **多系列折线**：主线 `width:3 + symbolSize:6 + z:10`，其余 `width:1.8 + symbolSize:3`；必须配 `emphasis:{focus:'series'}` + **显式** `blur:{lineStyle:{opacity:.08}}`；**不要覆盖 tooltip.trigger**（保持默认 item，否则 axis 触发会绕过单线聚焦）；**主线只在位于图区底部时才加 areaStyle**（顶部线的面积块会覆盖全图、劫持悬停，表现为悬停哪里都聚焦同一条线）；配色数组长度须 ≥ 系列数
@@ -122,7 +130,7 @@ Google Fonts 引入（仅 9 个字重，控制加载体积）：
 - **表格排序**：明细表表头可点，见组件规范「可排序明细表」
 - **阅读进度**：顶部渐变进度条随 scroll 更新（原生 scroll 监听）
 - **图表自适应**：window resize 时全部 chart.resize()
-- **折线图交互基线**：多系列折线必须配置 emphasis:{focus:'series'} + 显式 blur{lineStyle:{opacity:.08}} + tooltip trigger:'axis'（配方见 chart-recipes.md 2b），保证悬停聚焦效果肉眼可见；双轴柱线组合图不加 focus
+- **折线图交互基线**：多系列折线必须配置 emphasis:{focus:'series'} + 显式 blur{lineStyle:{opacity:.08}}，并**保持 `mk()` 默认的 tooltip 触发方式（不要覆盖 `tooltip.trigger`）**——一旦改成 `'axis'`，轴线触发会接管整个图区、绕过单线的 emphasis 聚焦，用户感知为「悬停没效果」（配方见 chart-recipes.md 2b 及其注释①，坑位见 pitfalls D1）。双轴柱线组合图不加 focus
 - **Hero 装饰字**：静态即可，无需 parallax
 - 不要添加：轮播、抽屉、模态框等重交互；报告以滚动叙事为核心
 - **验证方式**：默认只做静态自查（图表容器与 mk() 配置匹配、div/script 开闭配对、表格与 fillTable 匹配、D.xxx 键完整、node --check）；**截图验证须先征得用户同意**，仅在静态手段无法定位问题时才申请。建议把组装+自检写成常驻 `build_report.py`，每次改完重跑

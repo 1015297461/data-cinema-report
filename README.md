@@ -29,10 +29,12 @@ data-cinema-report/
 ├── SKILL.md                    # Skill 主入口：生成流程与硬性规范
 ├── assets/
 │   ├── template.html           # 完整报告骨架（内联 ECharts+ZRender / 浅色 CSS / 本地化 Tailwind / mk() 封装 / 交互脚本）
-│   └── echarts.inline.js       # 内联 ECharts 5.5.0 独立副本（约 1MB，供组装式写入引用）
+│   ├── echarts.inline.js       # 内联 ECharts 5.5.0 独立副本（约 1MB，供组装式写入引用）
+│   └── runtime_check.js        # Node 运行时检查器（严格模式 DOM 桩 + echarts.init 打桩）
 └── references/
-    ├── design-system.md        # 主题、字体、组件、图表、交互、内容规范（浅色版 v2.5）
-    ├── chart-recipes.md        # 16 类 ECharts 图表配方代码
+    ├── design-system.md        # 主题、字体、组件、图表、交互、内容规范（浅色版 v2.6）
+    ├── chart-recipes.md        # 17 类 ECharts 图表配方代码
+    ├── aspect-customers-say.md # 「关注点三列」分析模块配方（图 A 热度榜 / 图 B 负向率榜 / 表 D 明细表）
     └── pitfalls.md             # 实战踩坑清单与构建期静态自检断言
 ```
 
@@ -41,7 +43,7 @@ data-cinema-report/
 - **完全离线**：模板已内联 ECharts + ZRender，禁止再引入任何 JS CDN。
 - **三件套**：每个图表卡必须有 `.insight` 一句话总结（含具体数字）、`.src` 数据来源（精确到字段/筛选条件）、计算公式说明。
 - **章节结构**：HERO（KPI 卡片网格）→ 01..N 分析章节 → 结论/建议（可选）→ 文末 `APPENDIX · METHODOLOGY`（精简口径说明 + 公式速查表）。口径与公式统一收口在全篇最后一块，开篇不设独立章节。
-- **配色语义**：涨/正向 lime|cyan，跌/负向 rose，基准线 gold 虚线，上期对比系列用半透明灰。
+- **配色语义**：涨/正向与跌/负向的颜色按读者语种选择——国际习惯「绿涨红跌」（lime 涨 / rose 跌），**中文报告用「涨红跌绿」（rose 涨 / lime 跌）且分文本层 + 图表层两处改**；基准线 gold 虚线，上期对比系列用半透明灰。
 - **交互克制**：仅滚动淡入、顶部阅读进度条、图表 resize 自适应；可选点击下钻、dataZoom、表头排序。
 - **生成流程**：计算先行（Python 聚合出精简 JSON 注入）+ 组装式写入（避免手写 1MB 大文件）+ 构建期静态自检。
 

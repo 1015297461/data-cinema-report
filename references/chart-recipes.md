@@ -1,10 +1,15 @@
-# 图表配方库（从实战报告提炼，可直接改造）· 浅色版 v2.5
+# 图表配方库（从实战报告提炼，可直接改造）· 浅色版 v2.6
 
 统一使用 template.html 中的 `mk(id, opt)` 创建（mk 返回图表实例，可绑定事件）。以下各类图表的 ECharts option 模板，`D.xxx` 为数据占位。
 
-统一颜色常量（模板已内置）：
+**模板已内置的全局量（直接调用，切勿重复定义 —— 重复 `const` 会让整个脚本 SyntaxError、全页图表表格全灭）**：
+`D`（数据）、`C`（主题色）、`PAL`（多系列循环配色）、`FONT`、`charts`、`mk()`、`fmtCN`/`fmtM`/`fmtK`/`pc`/`fnum`、`fillTable()`、`parseVal()`、`makeSortable()`、`fpc`、`window.__observeReveal()`。
+
 ```js
+// ✅ 模板已内置，配方里直接引用即可：
 const C = {coral:'#f97316',cyan:'#0e9db8',lime:'#4c9d00',gold:'#f59e0b',violet:'#7c6cf0',rose:'#e11d48',sub:'#5c7a94',line:'#dde7f0'};
+
+// ⚠️ 模板**没有** SPL，必须在注入的图表配置块开头自行声明一次（见 pitfalls F6）：
 const SPL = 'rgba(24,42,63,.08)';  // 浅色网格线
 ```
 
@@ -34,7 +39,7 @@ mk('ch2',{grid:{left:10,right:60,top:40,bottom:80,containLabel:true},
 ```
 
 ## 2b. 多系列折线图交互基线（必配）
-适用：2 条及以上折线对比（分类趋势、多词对比、节日月度分布等）。效果：主线加粗+微面积置顶，悬停线条/图例聚焦该系列、其余淡出至 8% 透明度；tooltip 用 axis 触发（悬停任意 x 位置即展示该列全部数值）。
+适用：2 条及以上折线对比（分类趋势、多词对比、节日月度分布等）。效果：主线加粗+微面积置顶，悬停线条/图例聚焦该系列、其余淡出至 8% 透明度；tooltip 沿用 `mk()` 默认的 item 触发（**不要覆盖 `tooltip.trigger`**，原因见下方注释①）。
 ```js
 (function(){
   const style = [
@@ -52,7 +57,8 @@ mk('ch2',{grid:{left:10,right:60,top:40,bottom:80,containLabel:true},
   series[0].areaStyle={color:style[0].area};                           // 主线微面积
   mk('chX',{grid:{left:10,right:20,top:40,bottom:70,containLabel:true},
     legend:{top:0,textStyle:{color:C.sub,fontFamily:FONT,fontSize:11},itemWidth:18},
-    tooltip:{trigger:'axis',axisPointer:{type:'line',lineStyle:{color:C.gold,type:'dashed'}}},
+    // ⚠️ 不要在这里写 tooltip 配置 —— mk() 已注入默认的深色 tooltip 且 trigger 为 item。
+    //    一旦覆盖成 trigger:'axis'，轴线触发会接管整个图区、绕过单线的 emphasis 聚焦（注释①）。
     xAxis:{type:'category',data:D.months,axisLabel:{rotate:45,fontSize:10,color:C.sub},axisLine:{lineStyle:{color:C.line}}},
     yAxis:{type:'value',axisLabel:{color:C.sub,formatter:fmtK},splitLine:{lineStyle:{color:SPL}}},
     series:series});
@@ -220,64 +226,35 @@ mk('ch9',{grid:{left:10,right:70,top:30,bottom:40,containLabel:true},
     label:{show:true,position:'right',formatter:p=>fmtK(p.value),fontFamily:'JetBrains Mono',fontSize:10,color:'#5c7a94'}}]});
 ```
 
-## 10. 数据表填充 + 涨跌着色
+## 10. 数据表填充 + 可排序（模板已内置，勿重复定义）
+
+`fillTable` / `parseVal` / `makeSortable` / `fnum` / `fpc` **模板里全都有**，直接调用即可。
+**切勿照抄函数定义** —— 重复 `const`/`function` 声明会抛 `Identifier 'x' has already been declared`，
+整个脚本中断，全页图表与表格全灭。
+
 ```js
-function fillTable(id, cols, rows){
-  const t = document.getElementById(id); if(!t) return;
-  t.innerHTML = '<thead><tr>'+cols.map(c=>`<th>${c}</th>`).join('')+'</tr></thead><tbody>'+
-    rows.map(r=>'<tr>'+r.map(c=>`<td>${c}</td>`).join('')+'</tr>').join('')+'</tbody>';
-}
-const fnum = v => v===null||v===undefined?'—':(typeof v==='number'?v.toLocaleString('en-US'):v);
-const fpc = v => v==null?'—':'<span class="'+(v>=0?'pos':'neg')+'">'+(v>0?'+':'')+v.toFixed(1)+'%</span>';
-// 代码列样式：'<span class="mono text-xs">'+asin+'</span>'
-// 长文本截断：str.length>52 ? str.slice(0,52)+'…' : str
-// 表格前标题行下加 mt-3：'<div class="overflow-x-auto mt-3"><table class="dt" id="tblN"></table></div>'
+// 模板内置的签名（含第 4 参 sortable）：
+//   fillTable(id, cols, rows, sortable)   sortable=true 时表头可点击排序
+//   fnum(v)   千分位，空值输出 '—'
+//   fpc(v)    百分比着色 span（走 .pos/.neg 类）
+//   parseVal(text)  排序用数值解析：$ % 千分位 K M 万 正负号，空值沉底
+//   makeSortable(tableEl)  fillTable 内部已自动调用
+
+// 用法：所有「核心指标明细」表默认开启排序，标题追加提示
+// <h3 class="font-bold mb-1 text-lg">3.2 XXX核心指标明细 <span class="src">(点击任意表头排序)</span></h3>
+// <div class="overflow-x-auto mt-3"><table class="dt" id="tbl1"></table></div>
+fillTable('tbl1', ['关注点','提及数','负向率'], rows, true);
 ```
 
-## 10b. 可排序明细表（默认能力）
-所有"核心指标明细"表都应支持点击表头排序；标题加 `<span class="src">(点击任意表头排序)</span>` 提示。
-关键：**必须做数值解析**，否则 `$9.80` 会排在 `$19.32` 之后、`+113.9%` 按字符乱排。
-```js
-function fillTable(id, cols, rows, sortable){
-  const t = document.getElementById(id); if(!t) return;
-  t.innerHTML = '<thead><tr>'+cols.map((c,i)=>`<th data-ci="${i}"${sortable?' class="sortable"':''}>${c}</th>`).join('')+'</tr></thead><tbody>'+
-    rows.map(r=>'<tr>'+r.map(c=>`<td>${c}</td>`).join('')+'</tr>').join('')+'</tbody>';
-  if(sortable) makeSortable(t);
-}
-function parseVal(txt){                       // 识别 $ % 千分位 K M 万 正负号
-  let s=(txt||'').trim();
-  if(s===''||s==='—'||s==='-') return -Infinity;   // 空值统一沉底
-  let neg=/^[-−]/.test(s);
-  s=s.replace(/[+−-]/g,'').replace(/[$%]/g,'').replace(/,/g,'').replace(/<[^>]+>/g,'');
-  let mult=1;
-  if(/M$/i.test(s)){mult=1e6;s=s.replace(/M$/i,'');}
-  else if(/K$/i.test(s)){mult=1e3;s=s.replace(/K$/i,'');}
-  else if(/万/.test(s)){mult=1e4;s=s.replace(/万/g,'');}
-  const n=parseFloat(s); if(isNaN(n)) return null;
-  return (neg?-1:1)*n*mult;
-}
-function makeSortable(t){
-  const ths=t.querySelectorAll('th');
-  ths.forEach(th=>th.addEventListener('click',()=>{
-    const ci=+th.dataset.ci, tb=t.querySelector('tbody');
-    const dir = th.dataset.dir==='asc' ? 'desc' : 'asc';
-    ths.forEach(h=>{h.dataset.dir='';h.classList.remove('sort-asc','sort-desc');});
-    th.dataset.dir=dir; th.classList.add(dir==='asc'?'sort-asc':'sort-desc');
-    Array.from(tb.querySelectorAll('tr')).sort((a,b)=>{
-      const A=a.children[ci], B=b.children[ci];
-      const av=parseVal(A?A.textContent:''), bv=parseVal(B?B.textContent:'');
-      if(av===null&&bv===null) return dir==='asc'?A.textContent.localeCompare(B.textContent,'zh'):B.textContent.localeCompare(A.textContent,'zh');
-      if(av===null) return 1; if(bv===null) return -1;
-      return dir==='asc'?av-bv:bv-av;
-    }).forEach(r=>tb.appendChild(r));
-  }));
-}
-```
-配套 CSS（模板已内置）：`th.sortable` 手型光标 + 右侧 ⇅ 占位符，排序后变 ▲/▼ 并高亮为 coral。
-**明细表中文翻译并入英文名列**（`Wedding(婚礼)`），不单独开中文列。
+要点：
+- **必须开启数值解析**（模板的 `parseVal` 已实现），否则 `$9.80` 会排在 `$19.32` 之后、`+113.9%` 按字符乱排。
+- 代码列样式：`'<span class="mono text-xs">'+asin+'</span>'`。
+- 长文本截断：`str.length>52 ? str.slice(0,52)+'…' : str`。
+- **明细表中文翻译并入英文名列**（`Wedding(婚礼)`），不单独开中文列。
+- 配套 CSS（模板已内置）：`th.sortable` 手型光标 + 右侧 ⇅ 占位符，排序后变 ▲/▼ 并高亮为 coral。
 
 ## 11. 点击下钻联动面板（chip 组）
-适用：分布图/条形图点击某档后，展示该档下的细分小类目。数据结构：`D.kwdrill = {bins: {'<1千':[{cat:'泳池化学品', sv:123}, ...], ...}}`。
+适用：分布图/条形图点击某档后，展示该档下的细分小类目。数据结构：`D.kwdrill = {bins: {'<1千':[{cat:'小类目名', sv:123}, ...], ...}}`。
 ```html
 <!-- 图卡内、chart div 之后预置（默认隐藏） -->
 <div class="card" style="padding:14px 16px;margin-top:10px;display:none;" id="drill10">
@@ -287,16 +264,18 @@ function makeSortable(t){
 </div>
 ```
 ```js
-function fmtK_cn(v){ return v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e4?(v/1e4).toFixed(1)+'万':String(v); }
+// ⚠️ 不要自己写数量级格式化 —— 模板的 fmtCN 已按中文规范输出「万 / 亿」。
+//    曾经这里写过 return ...+'M'，直接违反 design-system §9 的「严禁 M/K」，
+//    且构建期正则（\d+M）抓不到这种字符串拼接，会静默产出「1.2M」。
 function renderDrill(pid, items, title, mode){  // mode: 'vol'量 | 'goods'数 | 'both'
   const box=document.getElementById(pid); if(!box) return;
   box.style.display='block';
   document.getElementById(pid+'h').textContent=title;
   document.getElementById(pid+'c').innerHTML=items.map(it=>{
     let extra='';
-    if(mode==='vol'){ extra=' <b style="color:var(--cyan);font-family:\'JetBrains Mono\',monospace;">'+fmtK_cn(it.sv)+'</b>'; }
+    if(mode==='vol'){ extra=' <b style="color:var(--cyan);font-family:\'JetBrains Mono\',monospace;">'+fmtCN(it.sv)+'</b>'; }
     else if(mode==='goods'){ extra=' <b style="color:var(--cyan);font-family:\'JetBrains Mono\',monospace;">'+it.n+'词</b>'; }
-    else { extra=' <b style="color:var(--cyan);font-family:\'JetBrains Mono\',monospace;">'+fmtK_cn(it.sv)+'</b><span style="color:var(--sub);"> · '+it.goods+'件</span>'; }
+    else { extra=' <b style="color:var(--cyan);font-family:\'JetBrains Mono\',monospace;">'+fmtCN(it.sv)+'</b><span style="color:var(--sub);"> · '+it.goods+'件</span>'; }
     return '<span style="display:inline-block;background:#f0f6fa;border:1px solid var(--line);border-radius:8px;padding:3px 11px;font-size:11.5px;color:var(--txt);white-space:nowrap;">'+it.cat+extra+'</span>';
   }).join('');
 }
@@ -309,13 +288,21 @@ function renderDrill(pid, items, title, mode){  // mode: 'vol'量 | 'goods'数 |
 ```
 
 ## 12. 结论卡组（HTML 模板）
+
+⚠️ **卡组是运行时注入的，末尾必须重新注册滚动入场** —— 否则这些 `.reveal` 永远停在 `opacity:0`，
+整块看起来「数据缺失」（见 pitfalls E5）。这一步漏了不会有任何报错，只能靠肉眼发现。
+
 ```js
-document.getElementById('cards').innerHTML = [
-  {t:'① 方向名',c:C.cyan,b:'论据文字（含具体数字）',s:'证据：2.1 / 3.2 图表'}
-].map(x=>`<div class="card p-5 reveal" style="border-top:2px solid ${x.c}">
-  <div class="font-bold mb-2" style="color:${x.c}">${x.t}</div>
-  <div class="text-sm leading-7 text-[color:var(--sub)]">${x.b}</div>
-  <div class="src mt-3">${x.s}</div></div>`).join('');
+(function(){
+  const el = document.getElementById('cards'); if(!el) return;
+  el.innerHTML = [
+    {t:'① 方向名',c:C.cyan,b:'论据文字（含具体数字）',s:'证据：图 X 图表'}
+  ].map(x=>`<div class="card p-5 reveal" style="border-top:2px solid ${x.c}">
+    <div class="font-bold mb-2" style="color:${x.c}">${x.t}</div>
+    <div class="text-sm leading-7 text-[color:var(--sub)]">${x.b}</div>
+    <div class="src mt-3">${x.s}</div></div>`).join('');
+  if(window.__observeReveal) window.__observeReveal(el);   // ★ 漏了这行 = 整块空白
+})();
 ```
 容器：`<div class="grid md:grid-cols-2 gap-5 mt-4" id="cards"></div>`
 （结论/建议类内容一律放在**分析章节之后、APPENDIX 之前**，不要塞进中段章节里。）
